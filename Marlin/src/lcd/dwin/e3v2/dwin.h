@@ -90,7 +90,6 @@ enum processID : uint8_t {
     Extruder_Refuel,
     ETemp,
   #endif
-  Homeoffset,
   #if HAS_HEATED_BED
     BedTemp,
   #endif

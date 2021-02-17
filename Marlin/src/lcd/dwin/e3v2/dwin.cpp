@@ -168,7 +168,7 @@ typedef struct {
 } select_t;
 
 select_t select_page{0}, select_file{0}, select_print{0}, select_prepare{0}
-         , select_control{0}, select_axis{0}, select_aux{0}, select_ztool{0}, select_refuel{0}, select_temp{0}, select_motion{0}, select_tune{0}
+         , select_control{0}, select_axis{0}, select_aux{0}, select_ztool{0}, select_refuel{0}, select_temp{0}, select_motion{0}, select_tune{0} //SMITH3D change
          , select_PLA{0}, select_ABS{0}
          , select_speed{0}
          , select_acc{0}
