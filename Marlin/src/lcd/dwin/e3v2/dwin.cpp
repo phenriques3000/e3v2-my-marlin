@@ -25,6 +25,7 @@
  */
 
 #include "../../../inc/MarlinConfigPre.h"
+#include "../../../gcode/gcode.h"
 
 #if ENABLED(DWIN_CREALITY_LCD)
 
@@ -167,7 +168,7 @@ typedef struct {
 } select_t;
 
 select_t select_page{0}, select_file{0}, select_print{0}, select_prepare{0}
-         , select_control{0}, select_axis{0}, select_temp{0}, select_motion{0}, select_tune{0}
+         , select_control{0}, select_axis{0}, select_aux{0}, select_ztool{0}, select_refuel{0}, select_temp{0}, select_motion{0}, select_tune{0}
          , select_PLA{0}, select_ABS{0}
          , select_speed{0}
          , select_acc{0}
@@ -177,6 +178,7 @@ select_t select_page{0}, select_file{0}, select_print{0}, select_prepare{0}
 
 uint8_t index_file     = MROWS,
         index_prepare  = MROWS,
+        index_aux = MROWS,
         index_control  = MROWS,
         index_leveling = MROWS,
         index_tune     = MROWS;
@@ -215,6 +217,7 @@ void HMI_SetLanguage() {
   #if BOTH(EEPROM_SETTINGS, IIC_BL24CXX_EEPROM)
     BL24CXX::read(DWIN_LANGUAGE_EEPROM_ADDRESS, (uint8_t*)&HMI_flag.language, sizeof(HMI_flag.language));
   #endif
+  HMI_flag.language = DWIN_ENGLISH; //Force English
   HMI_SetLanguageCache();
 }
 
@@ -515,7 +518,10 @@ inline bool Apply_Encoder(const ENCODER_DiffState &encoder_diffState, auto &valr
 #define PREPARE_CASE_DISA  2
 #define PREPARE_CASE_HOME  3
 #define PREPARE_CASE_ZOFF (PREPARE_CASE_HOME + ENABLED(HAS_ZOFFSET_ITEM))
-#define PREPARE_CASE_PLA  (PREPARE_CASE_ZOFF + ENABLED(HAS_HOTEND))
+#define PREPARE_CASE_ZTOOL (PREPARE_CASE_ZOFF + ENABLED(HAS_ZOFFSET_ITEM))
+#define PREPARE_CASE_AUX (PREPARE_CASE_ZTOOL + 1)
+#define PREPARE_CASE_REFUEL (PREPARE_CASE_AUX + 1)
+#define PREPARE_CASE_PLA  (PREPARE_CASE_REFUEL + ENABLED(HAS_HOTEND))
 #define PREPARE_CASE_ABS  (PREPARE_CASE_PLA + ENABLED(HAS_HOTEND))
 #define PREPARE_CASE_COOL (PREPARE_CASE_ABS + EITHER(HAS_HOTEND, HAS_HEATED_BED))
 #define PREPARE_CASE_LANG (PREPARE_CASE_COOL + 1)
@@ -567,6 +573,38 @@ void draw_move_en(const uint16_t line) {
     DWIN_Frame_AreaCopy(1, 69, 61, 102, 71, LBLX, line); // "Move"
   #endif
 }
+
+//SMITH3D start
+inline void Item_Prepare_AUX(const uint8_t row) {
+  if (HMI_IsChinese())
+    DWIN_Frame_AreaCopy(1, 159, 70, 271-71, 479-395, LBLX, MBASE(row));
+  else
+    //draw_move_en(MBASE(row)); // "Move >"
+     DWIN_Draw_String(false,false,font8x16,Popup_Text_Color,Color_Bg_Window, 64, MBASE(row), (char*)"AUX Leveling");
+  Draw_Menu_Line(row, ICON_Axis);
+  Draw_More_Icon(row);
+}
+
+inline void Item_Prepare_ZTool(const uint8_t row) {
+  if (HMI_IsChinese())
+    DWIN_Frame_AreaCopy(1, 159, 70, 271-71, 479-395, LBLX, MBASE(row));
+  else
+    //draw_move_en(MBASE(row)); // "Move >"
+     DWIN_Draw_String(false,false,font8x16,Popup_Text_Color,Color_Bg_Window, 64, MBASE(row), (char*)"Z-Offset Tool");
+  Draw_Menu_Line(row, ICON_Axis);
+  Draw_More_Icon(row);
+}
+
+inline void Item_Prepare_Refuel(const uint8_t row) {
+  if (HMI_IsChinese())
+    DWIN_Frame_AreaCopy(1, 159, 70, 271-71, 479-395, LBLX, MBASE(row));
+  else
+    //draw_move_en(MBASE(row)); // "Move >"
+     DWIN_Draw_String(false,false,font8x16,Popup_Text_Color,Color_Bg_Window, 64, MBASE(row), (char*)"Refuel");
+  Draw_Menu_Line(row, ICON_Axis);
+  Draw_More_Icon(row);
+}
+//SMITH3D end
 
 void DWIN_Frame_TitleCopy(uint8_t id, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) { DWIN_Frame_AreaCopy(id, x1, y1, x2, y2, 14, 8); }
 
@@ -722,7 +760,10 @@ void Draw_Prepare_Menu() {
   if (PVISI(PREPARE_CASE_HOME)) Item_Prepare_Home(PSCROL(PREPARE_CASE_HOME));     // Auto Home
   #if HAS_ZOFFSET_ITEM
     if (PVISI(PREPARE_CASE_ZOFF)) Item_Prepare_Offset(PSCROL(PREPARE_CASE_ZOFF)); // Edit Z-Offset / Babystep / Set Home Offset
+    if (PVISI(PREPARE_CASE_ZTOOL)) Item_Prepare_ZTool(PSCROL(PREPARE_CASE_ZTOOL));         // Z Tool >
   #endif
+    if (PVISI(PREPARE_CASE_AUX)) Item_Prepare_AUX(PSCROL(PREPARE_CASE_AUX));         // AUX Leveling >
+    if (PVISI(PREPARE_CASE_REFUEL)) Item_Prepare_Refuel(PSCROL(PREPARE_CASE_REFUEL));         // Filament Feed >
   #if HAS_HOTEND
     if (PVISI(PREPARE_CASE_PLA)) Item_Prepare_PLA(PSCROL(PREPARE_CASE_PLA));      // Preheat PLA
     if (PVISI(PREPARE_CASE_ABS)) Item_Prepare_ABS(PSCROL(PREPARE_CASE_ABS));      // Preheat ABS
@@ -1043,6 +1084,23 @@ void Draw_Popup_Bkgd_60() {
 
 #endif
 
+//SMITH3D start
+void Popup_Window_Aux() {
+  Clear_Main_Window();
+  Draw_Popup_Bkgd_60();
+  DWIN_ICON_Show(ICON, ICON_BLTouch, 101, 105);
+  if (HMI_IsChinese()) {
+    DWIN_Frame_AreaCopy(1, 0, 371, 33, 386, 85, 240);
+    DWIN_Frame_AreaCopy(1, 203, 286, 271, 302, 118, 240);
+    DWIN_Frame_AreaCopy(1, 0, 389, 150, 402, 61, 280);
+  }
+  else {
+    DWIN_Draw_String(false,true,font8x16, Popup_Text_Color, Color_Bg_Window, 80, 230, (char*)"Heading To Point");
+    DWIN_Draw_String(false,true,font8x16, Popup_Text_Color, Color_Bg_Window, 24, 260, (char*)"Please wait until completed");
+  }
+}
+//SMITH3D end
+
 void Popup_Window_Resume() {
   Clear_Popup_Area();
   Draw_Popup_Bkgd_105();
@@ -1284,6 +1342,24 @@ void HMI_Move_Z() {
     }
   }
 
+//SMITH3D start
+  void HMI_Move_E_Refuel() {
+    ENCODER_DiffState encoder_diffState = Encoder_ReceiveAnalyze();
+    if (encoder_diffState != ENCODER_DIFF_NO) {
+      if (Apply_Encoder(encoder_diffState, HMI_ValueStruct.Move_E_scaled)) {
+        checkkey = Refuel;
+        EncoderRate.enabled = false;
+        DWIN_Draw_Signed_Float(font8x16, Color_Bg_Black, 3, 1, 216, MBASE(1), HMI_ValueStruct.Move_E_scaled);
+        DWIN_UpdateLCD();
+        return;
+      }
+      NOLESS(HMI_ValueStruct.Move_E_scaled, 0);
+      DWIN_Draw_Signed_Float(font8x16, Select_Color, 3, 1, 216, MBASE(1), HMI_ValueStruct.Move_E_scaled);
+      DWIN_UpdateLCD();
+    }
+  }
+//SMITH3D end
+
 #endif
 
 #if HAS_ZOFFSET_ITEM
@@ -1293,6 +1369,7 @@ void HMI_Move_Z() {
   void HMI_Zoffset() {
     ENCODER_DiffState encoder_diffState = Encoder_ReceiveAnalyze();
     if (encoder_diffState != ENCODER_DIFF_NO) {
+      last_zoffset = dwin_zoffset; //SMITH3D add
       uint8_t zoff_line;
       switch (HMI_ValueStruct.show_mode) {
         case -4: zoff_line = PREPARE_CASE_ZOFF + MROWS - index_prepare; break;
@@ -1303,6 +1380,13 @@ void HMI_Move_Z() {
         #if HAS_BED_PROBE
           probe.offset.z = dwin_zoffset;
           TERN_(EEPROM_SETTINGS, settings.save());
+          //SMITH3D start
+          dwin_zoffset = HMI_ValueStruct.offset_value / 100.0f;
+          probe.offset.z = dwin_zoffset;
+            #if EITHER(BABYSTEP_ZPROBE_OFFSET, JUST_BABYSTEP)
+              if (BABYSTEP_ALLOWED()) babystep.add_mm(Z_AXIS, dwin_zoffset - last_zoffset);
+            #endif
+          //SMITH3D end
         #endif
         checkkey = HMI_ValueStruct.show_mode == -4 ? Prepare : Tune;
         DWIN_Draw_Signed_Float(font8x16, Color_Bg_Black, 2, 2, 202, MBASE(zoff_line), TERN(HAS_BED_PROBE, BABY_Z_VAR * 100, HMI_ValueStruct.offset_value));
@@ -1322,6 +1406,39 @@ void HMI_Move_Z() {
 
 #endif // HAS_ZOFFSET_ITEM
 
+//SMITH3D start
+void HMI_ZoffsetRT() {
+  ENCODER_DiffState encoder_diffState = Encoder_ReceiveAnalyze();
+  char gcode_string[80];
+  if (encoder_diffState != ENCODER_DIFF_NO) {
+    last_zoffset = probe.offset.z;
+    if (Apply_Encoder(encoder_diffState, HMI_ValueStruct.offset_value)) {
+      EncoderRate.enabled = true;
+      dwin_zoffset = HMI_ValueStruct.offset_value / 100;
+      #if HAS_BED_PROBE
+        probe.offset.z = dwin_zoffset;
+        settings.save();
+        gcode.process_subcommands_now_P(PSTR("G91" ));
+        sprintf_P(gcode_string, PSTR("G1 Z%.2f F200"), (dwin_zoffset - last_zoffset));
+        gcode.process_subcommands_now_P(gcode_string);
+        gcode.process_subcommands_now_P(PSTR("G90" ));
+      #endif
+      if (HMI_ValueStruct.show_mode == -4) {
+        checkkey = ZTool;
+        DWIN_Draw_Signed_Float(font8x16, Color_Bg_Black, 2, 2, 202, MBASE(1), TERN(HAS_ONESTEP_LEVELING, probe.offset.z*100, HMI_ValueStruct.offset_value));
+      }
+      
+      DWIN_UpdateLCD();
+      return;
+    }
+    NOLESS(HMI_ValueStruct.offset_value, (Z_PROBE_OFFSET_RANGE_MIN)*100);
+  NOMORE(HMI_ValueStruct.offset_value, (Z_PROBE_OFFSET_RANGE_MAX)*100);
+    DWIN_Draw_Signed_Float(font8x16, Select_Color, 2, 2, 202, MBASE(1), HMI_ValueStruct.offset_value);
+    DWIN_UpdateLCD();
+  }
+}
+
+//SMITH3D end
 #if HAS_HOTEND
 
   void HMI_ETemp() {
@@ -2025,6 +2142,7 @@ void HMI_MainMenu() {
     switch (select_page.now) {
       case 0: // Print File
         checkkey = SelectFile;
+        gcode.process_subcommands_now_P(PSTR("M21" )); //Support MicroSD Card Extension - SMITH3D add
         Draw_Print_File_Menu();
         break;
 
@@ -2353,6 +2471,85 @@ void HMI_AudioFeedback(const bool success=true) {
     buzzer.tone(40, 440);
 }
 
+//SMITH3D start
+inline void Draw_ZTool_Menu() {
+  Clear_Main_Window();
+  Draw_Title("Z Tool [Smith3D.com]"); // TODO: GET_TEXT_F
+
+
+   #if HAS_BED_PROBE
+     // DWIN_Frame_AreaCopy(1, 93, 179, 271-130, 479-290, LBLX, MBASE(1)); // "Z-Offset"
+       DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(1), (char*)"Z-Offset");
+      DWIN_Draw_Signed_Float(font8x16, Color_Bg_Black, 2, 2, 202, MBASE(1), probe.offset.z*100);
+      DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(2), (char*)"Re-Home Z");
+    #else
+      DWIN_Frame_AreaCopy(1, 1, 76, 271-165, 479-393, LBLX, MBASE(1)); // "..."
+    #endif
+
+  Draw_Back_First(select_ztool.now == 0);
+  LOOP_L_N(i, 2) Draw_Menu_Line(i + 1, ICON_SetHome);
+}
+
+
+inline void Draw_Refuel_Menu() {
+  Clear_Main_Window();
+  Draw_Title("Refuel [Smith3D.com]"); // TODO: GET_TEXT_F
+    DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(1), (char*)"Length (mm)");
+    DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(2), (char*)"Feed");
+    DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(3), (char*)"Retract");
+    queue.inject_P(PSTR("G92 E0"));
+    HMI_ValueStruct.Move_E_scaled = 100; //Default 10mm feed
+    DWIN_Draw_Signed_Float(font8x16, Color_Bg_Black, 3, 1, 216, MBASE(1), HMI_ValueStruct.Move_E_scaled);
+    //DWIN_Frame_AreaCopy(1, 1, 76, 271-165, 479-393, LBLX, MBASE(1)); // "..."
+  Draw_Back_First(select_refuel.now == 0);
+  LOOP_L_N(i, 3) Draw_Menu_Line(i + 1, ICON_SetHome);
+}
+
+inline void Draw_AUX_Menu() {
+  Clear_Main_Window();
+
+ if (HMI_IsChinese()) {
+    DWIN_Frame_AreaCopy(1, 192, 1, 271-38, 479-465, 14, 8);
+
+     DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(1), (char*)"To Bottom Left");
+    
+    DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(2), (char*)"To Top Left");
+
+    DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(3), (char*)"To Top Right");
+    
+    DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(4), (char*)"To Bottom Right");
+
+    DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(5), (char*)"To Center");
+  }
+  else {
+   #ifdef USE_STRING_HEADINGS
+      Draw_Title("AUX Leveling [Smith3D.com]"); // TODO: GET_TEXT_F
+    #else
+      DWIN_Frame_AreaCopy(1, 231, 2, 271-6, 479-467, 14, 8);
+    #endif
+
+    //draw_move_en(MBASE(1));         
+    DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(1), (char*)"To Bottom Left");
+    
+    //draw_move_en(MBASE(2));   
+    DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(2), (char*)"To Top Left");
+
+    //draw_move_en(MBASE(3));   
+    DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(3), (char*)"To Top Right");
+  
+    //draw_move_en(MBASE(4));   
+    DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(4), (char*)"To Bottom Right");
+
+    //draw_move_en(MBASE(5));   
+    DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(5), (char*)"To Center");
+
+  }
+  Draw_Back_First(select_aux.now == 0);
+  if (select_aux.now) Draw_Menu_Cursor(select_aux.now);
+  LOOP_L_N(i, 5) Draw_Menu_Line(i + 1, ICON_Homing);
+}
+//SMITH3D end
+
 /* Prepare */
 void HMI_Prepare() {
   ENCODER_DiffState encoder_diffState = get_encoder_state();
@@ -2370,8 +2567,11 @@ void HMI_Prepare() {
 
         // Draw "More" icon for sub-menus
         if (index_prepare < 7) Draw_More_Icon(MROWS - index_prepare + 1);
+          if (index_prepare == PREPARE_CASE_AUX) Item_Prepare_AUX(MROWS); //SMITH3D add
+          if (index_prepare == PREPARE_CASE_REFUEL) Item_Prepare_Refuel(MROWS); //SMITH3D add
 
         #if HAS_HOTEND
+          if (index_prepare == PREPARE_CASE_PLA) Item_Prepare_PLA(MROWS); //SMITH3D add
           if (index_prepare == PREPARE_CASE_ABS) Item_Prepare_ABS(MROWS);
         #endif
         #if HAS_PREHEAT
@@ -2400,6 +2600,12 @@ void HMI_Prepare() {
              if (index_prepare == 6) Item_Prepare_Move(0);
         else if (index_prepare == 7) Item_Prepare_Disable(0);
         else if (index_prepare == 8) Item_Prepare_Home(0);
+        //SMITH3D start
+        else if (index_prepare == 9) Item_Prepare_Offset(0);
+        else if (index_prepare == 10) Item_Prepare_ZTool(0);
+        else if (index_prepare == 11) Item_Prepare_AUX(0);
+        else if (index_prepare == 12) Item_Prepare_Refuel(0);
+        //SMITH3D end
       }
       else {
         Move_Highlight(-1, select_prepare.now + MROWS - index_prepare);
@@ -2431,6 +2637,7 @@ void HMI_Prepare() {
       case PREPARE_CASE_HOME: // Homing
         checkkey = Last_Prepare;
         index_prepare = MROWS;
+        gcode.process_subcommands_now_P( PSTR("M220 S100")); //SMITH3D add
         queue.inject_P(G28_STR); // G28 will set home_flag
         Popup_Window_Home();
         break;
@@ -2448,7 +2655,52 @@ void HMI_Prepare() {
             HMI_AudioFeedback();
           #endif
           break;
+        //SMITH3D start
+        case PREPARE_CASE_ZTOOL: // ZTool
+          checkkey = ZTool;
+          select_ztool.reset();
+          Popup_Window_Home(false);
+          DWIN_UpdateLCD();
+          gcode.process_subcommands_now_P( PSTR("M220 S100"));
+          gcode.process_subcommands_now_P( PSTR("M420 Z0"));
+          gcode.process_subcommands_now_P( PSTR("G28"));
+          gcode.process_subcommands_now_P( PSTR("G92 E0"));
+          //gcode.process_subcommands_now_P( PSTR("G1 F4000 Z10"));
+          //gcode.process_subcommands_now_P( PSTR("G1 F4000 X145 Y116"));
+          gcode.process_subcommands_now_P( PSTR("G1 F60 Z0"));
+          gcode.process_subcommands_now_P( PSTR("M211 S0"));
+          gcode.process_subcommands_now_P( PSTR("M220 S100"));
+          planner.synchronize();
+          current_position.e = HMI_ValueStruct.Move_E_scaled = 0;
+          //dwin_zoffset = TERN(HAS_ONESTEP_LEVELING, probe.offset.z, 0);
+          dwin_zoffset = TERN(HAS_ONESTEP_LEVELING, probe.offset.z, 0);
+          Draw_ZTool_Menu();
+          DWIN_UpdateLCD();
+          break;
+        //SMITH3D end
       #endif
+      //SMITH3D start
+      case PREPARE_CASE_AUX: // AUX
+        checkkey = AUX;
+        select_aux.reset();
+        Popup_Window_Home(false);
+        DWIN_UpdateLCD();
+        gcode.process_subcommands_now_P( PSTR("M220 S100"));
+        gcode.process_subcommands_now_P( PSTR("G28"));
+        gcode.process_subcommands_now_P( PSTR("G92 E0"));
+        planner.synchronize();
+        current_position.e = HMI_ValueStruct.Move_E_scaled = 0;
+        Draw_AUX_Menu();
+        DWIN_UpdateLCD();
+        break;
+      case PREPARE_CASE_REFUEL: // Filament Feed
+        checkkey = Refuel;
+        select_refuel.reset();
+        current_position.e = HMI_ValueStruct.Move_E_scaled = 0; //Reset to 0
+        Draw_Refuel_Menu();
+        DWIN_UpdateLCD();
+        break;
+      //SMITH3d end
       #if HAS_PREHEAT
         case PREPARE_CASE_PLA: // PLA preheat
           TERN_(HAS_HOTEND, thermalManager.setTargetHotend(ui.material_preset[0].hotend_temp, 0));
@@ -2655,6 +2907,7 @@ void HMI_Control() {
   void HMI_Leveling() {
     Popup_Window_Leveling();
     DWIN_UpdateLCD();
+    gcode.process_subcommands_now_P( PSTR("M220 S100")); //SMITH3D add
     queue.inject_P(PSTR("G28O\nG29"));
   }
 
@@ -3189,6 +3442,211 @@ void Draw_Steps_Menu() {
   #endif
 }
 
+//SMITH3D start
+/* Motion */
+void HMI_AUX() {
+  ENCODER_DiffState encoder_diffState = get_encoder_state();
+  if (encoder_diffState == ENCODER_DIFF_NO) return;
+
+  // Avoid flicker by updating only the previous menu
+  if (encoder_diffState == ENCODER_DIFF_CW) {
+    if (select_aux.inc(6)) Move_Highlight(1, select_aux.now);
+  }
+  else if (encoder_diffState == ENCODER_DIFF_CCW) {
+    if (select_aux.dec()) Move_Highlight(-1, select_aux.now);
+  }
+  else if (encoder_diffState == ENCODER_DIFF_ENTER) {
+    switch (select_aux.now) {
+      case 0: // back
+        checkkey = Prepare;
+        select_prepare.set(1);
+        index_prepare = MROWS;
+        Draw_Prepare_Menu();
+        break;
+      case 1: // btm left
+       // checkkey = Move1;
+         index_aux = MROWS;
+         //Popup_Window_Aux();
+         //DWIN_UpdateLCD();
+        gcode.process_subcommands_now_P( PSTR("G1 F4000"));
+        gcode.process_subcommands_now_P( PSTR("G1 Z10"));
+        gcode.process_subcommands_now_P( PSTR("G1 X20 Y20"));
+        gcode.process_subcommands_now_P( PSTR("G1 F300 Z0"));
+        gcode.process_subcommands_now_P( PSTR("M220 S100"));
+        
+        planner.synchronize();
+        break;
+      case 2: // top left
+       // checkkey = Move2;
+       index_aux = MROWS;
+        gcode.process_subcommands_now_P( PSTR("G1 F4000"));
+        gcode.process_subcommands_now_P( PSTR("G1 Z10"));
+        gcode.process_subcommands_now_P( PSTR("G1 X20 Y200"));
+        gcode.process_subcommands_now_P( PSTR("G1 F300 Z0"));
+        gcode.process_subcommands_now_P( PSTR("M220 S100"));
+        planner.synchronize();
+        break;
+      case 3: // top right
+       // checkkey = Move3;
+        index_aux = MROWS;
+        gcode.process_subcommands_now_P( PSTR("G1 F4000"));
+        gcode.process_subcommands_now_P( PSTR("G1 Z10"));
+        gcode.process_subcommands_now_P( PSTR("G1 X200 Y200"));
+        gcode.process_subcommands_now_P( PSTR("G1 F300 Z0"));
+        gcode.process_subcommands_now_P( PSTR("M220 S100"));
+        planner.synchronize();
+        break;
+      case 4: // bottom right
+        //checkkey = Move4;
+        index_aux = MROWS;
+        gcode.process_subcommands_now_P( PSTR("G1 F4000"));
+        gcode.process_subcommands_now_P( PSTR("G1 Z10"));
+        gcode.process_subcommands_now_P( PSTR("G1 X200 Y20"));
+        gcode.process_subcommands_now_P( PSTR("G1 F300 Z0"));
+        gcode.process_subcommands_now_P( PSTR("M220 S100"));
+      planner.synchronize();
+         
+        break;
+      case 5: // transmission ratio
+        //checkkey = Move5;
+         index_aux = MROWS;
+        gcode.process_subcommands_now_P( PSTR("G1 F4000"));
+        gcode.process_subcommands_now_P( PSTR("G1 Z10"));
+        gcode.process_subcommands_now_P( PSTR("G1 X145 Y116"));
+        gcode.process_subcommands_now_P( PSTR("G1 F300 Z0"));
+        gcode.process_subcommands_now_P( PSTR("M220 S100"));
+        planner.synchronize();
+        break;
+      default:
+        break;
+    }
+  }
+  DWIN_UpdateLCD();
+}
+
+void HMI_Refuel(void){
+    ENCODER_DiffState encoder_diffState = get_encoder_state();
+  if (encoder_diffState == ENCODER_DIFF_NO) return;
+
+  #if ENABLED(PREVENT_COLD_EXTRUSION)
+    // popup window resume
+    if (HMI_flag.ETempTooLow_flag) {
+      if (encoder_diffState == ENCODER_DIFF_ENTER) {
+        HMI_flag.ETempTooLow_flag = false;
+        current_position.e = HMI_ValueStruct.Move_E_scaled = 0;
+        Draw_Refuel_Menu();
+        DWIN_UpdateLCD();
+      }
+      return;
+    }
+  #endif
+
+  char gcode_string[80];
+  if (encoder_diffState == ENCODER_DIFF_CW) {
+    if (select_refuel.inc(4)) Move_Highlight(1, select_refuel.now);
+  }
+  else if (encoder_diffState == ENCODER_DIFF_CCW) {
+    if (select_refuel.dec()) Move_Highlight(-1, select_refuel.now);
+  }
+  else if (encoder_diffState == ENCODER_DIFF_ENTER) {
+    switch (select_refuel.now) {
+      case 0: // back
+        checkkey = Prepare;
+        select_prepare.set(1);
+        index_prepare = MROWS;
+        Draw_Prepare_Menu();
+        break;
+      case 1: //
+            checkkey = Extruder_Refuel;
+            DWIN_Draw_Signed_Float(font8x16, Select_Color, 3, 1, 216, MBASE(1), HMI_ValueStruct.Move_E_scaled);
+            EncoderRate.enabled = true;
+            break;
+        break;
+      case 2: //Feed
+        #ifdef PREVENT_COLD_EXTRUSION
+          if (thermalManager.temp_hotend[0].celsius < EXTRUDE_MINTEMP) {
+            HMI_flag.ETempTooLow_flag = true;
+            Popup_Window_ETempTooLow();
+            DWIN_UpdateLCD();
+            return;
+          }
+        #endif
+        sprintf_P(gcode_string, PSTR("G1 E%.2f"), (HMI_ValueStruct.Move_E_scaled/10));
+        gcode.process_subcommands_now_P("G1 F150");
+        gcode.process_subcommands_now_P("G92 E0");
+        gcode.process_subcommands_now_P(PSTR(gcode_string ));
+        break;
+      case 3: //Retreat
+        #ifdef PREVENT_COLD_EXTRUSION
+          if (thermalManager.temp_hotend[0].celsius < EXTRUDE_MINTEMP) {
+            HMI_flag.ETempTooLow_flag = true;
+            Popup_Window_ETempTooLow();
+            DWIN_UpdateLCD();
+            return;
+          }
+        #endif
+        sprintf_P(gcode_string, PSTR("G1 E-%.2f"), (HMI_ValueStruct.Move_E_scaled/10));
+        gcode.process_subcommands_now_P("G1 F150");
+        gcode.process_subcommands_now_P("G92 E0");
+        gcode.process_subcommands_now_P(PSTR(gcode_string ));
+        break;
+    }
+  }
+  DWIN_UpdateLCD();
+}
+
+void HMI_ZTool() {
+  ENCODER_DiffState encoder_diffState = get_encoder_state();
+  if (encoder_diffState == ENCODER_DIFF_NO) return;
+  char gcode_string[80];
+  // Avoid flicker by updating only the previous menu
+  if (encoder_diffState == ENCODER_DIFF_CW) {
+    if (select_ztool.inc(3)) Move_Highlight(1, select_ztool.now);
+  }
+  else if (encoder_diffState == ENCODER_DIFF_CCW) {
+    if (select_ztool.dec()) Move_Highlight(-1, select_ztool.now);
+  }
+  else if (encoder_diffState == ENCODER_DIFF_ENTER) {
+    switch (select_ztool.now) {
+      case 0: // back
+        checkkey = Prepare;
+        sprintf_P(gcode_string, PSTR("M851 Z%.2f"), (dwin_zoffset));
+        gcode.process_subcommands_now_P(PSTR(gcode_string ));
+        gcode.process_subcommands_now_P( PSTR("M211 S1"));
+        gcode.process_subcommands_now_P( PSTR("M500"));
+        gcode.process_subcommands_now_P( PSTR("M501"));
+        //gcode.process_subcommands_now_P( PSTR("G28 Z"));
+        select_prepare.set(1);
+        index_prepare = MROWS;
+        Draw_Prepare_Menu();
+        break;
+      case 1: // transmission ratio
+         #if HAS_ONESTEP_LEVELING
+          checkkey = HomeoffsetRT;
+          HMI_ValueStruct.show_mode = -4;
+          HMI_ValueStruct.offset_value = probe.offset.z * 100;
+          DWIN_Draw_Signed_Float(font8x16, Select_Color, 2, 2, 202, MBASE(1), HMI_ValueStruct.offset_value);
+          EncoderRate.enabled = true;
+        #else
+          // Apply workspace offset, making the current position 0,0,0
+          queue.inject_P(PSTR("G92 X0 Y0 Z0"));
+          HMI_AudioFeedback();
+        #endif
+        break;
+       case 2: //ReHomeZ
+        sprintf_P(gcode_string, PSTR("M851 Z%.2f"), (dwin_zoffset));
+        gcode.process_subcommands_now_P(PSTR(gcode_string ));
+        gcode.process_subcommands_now_P( PSTR("G28 Z")); //Rehome Z only
+        gcode.process_subcommands_now_P( PSTR("G1 F300 Z0")); 
+        break;
+      default:
+        break;
+    }
+  }
+  DWIN_UpdateLCD();
+}
+//SMITH3D end
+
 /* Motion */
 void HMI_Motion() {
   ENCODER_DiffState encoder_diffState = get_encoder_state();
@@ -3244,7 +3702,10 @@ void HMI_Info() {
   if (encoder_diffState == ENCODER_DIFF_ENTER) {
     #if HAS_ONESTEP_LEVELING
       checkkey = Control;
-      select_control.set(CONTROL_CASE_INFO);
+      //select_control.set(CONTROL_CASE_INFO); - SMITH3D delete
+      select_control.reset(); //To fix a UI bug where back and causing Text display swifted - SMITH3D add
+        index_control = MROWS; //SMITH3D add
+
       Draw_Control_Menu();
     #else
       select_page.set(3);
@@ -3711,6 +4172,8 @@ void EachMomentUpdate() {
           if (encoder_diffState == ENCODER_DIFF_ENTER) {
             recovery_flag = false;
             if (HMI_flag.select_flag) break;
+            gcode.process_subcommands_now_P(PSTR("M21"));//Reload SD Card - SMITH3D add
+            recovery.purge(); //SMITH3D add
             TERN_(POWER_LOSS_RECOVERY, queue.inject_P(PSTR("M1000C")));
             HMI_StartFrame(true);
             return;
@@ -3738,6 +4201,11 @@ void DWIN_HandleScreen() {
     case MainMenu:        HMI_MainMenu(); break;
     case SelectFile:      HMI_SelectFile(); break;
     case Prepare:         HMI_Prepare(); break;
+    //SMITH3D start
+    case AUX:             HMI_AUX(); break;
+    case ZTool:           HMI_ZTool(); break;
+    case Refuel:          HMI_Refuel(); break;
+    //SMITH3D end
     case Control:         HMI_Control(); break;
     case Leveling:        break;
     case PrintProcess:    HMI_Printing(); break;
@@ -3762,10 +4230,12 @@ void DWIN_HandleScreen() {
     case Move_Z:          HMI_Move_Z(); break;
     #if HAS_HOTEND
       case Extruder:      HMI_Move_E(); break;
+      case Extruder_Refuel:      HMI_Move_E_Refuel(); break; //SMITH3D add
       case ETemp:         HMI_ETemp(); break;
     #endif
     #if EITHER(HAS_BED_PROBE, BABYSTEPPING)
       case Homeoffset:    HMI_Zoffset(); break;
+      case HomeoffsetRT:          HMI_ZoffsetRT(); break; //SMITH3D add
     #endif
     #if HAS_HEATED_BED
       case BedTemp:       HMI_BedTemp(); break;
