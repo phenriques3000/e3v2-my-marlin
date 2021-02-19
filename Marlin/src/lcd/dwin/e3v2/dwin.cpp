@@ -2474,7 +2474,7 @@ void HMI_AudioFeedback(const bool success=true) {
 //SMITH3D start
 inline void Draw_ZTool_Menu() {
   Clear_Main_Window();
-  Draw_Title("Z Tool [Smith3D.com]"); // TODO: GET_TEXT_F
+  Draw_Title("Z Tool"); // TODO: GET_TEXT_F
 
 
    #if HAS_BED_PROBE
@@ -2493,7 +2493,7 @@ inline void Draw_ZTool_Menu() {
 
 inline void Draw_Refuel_Menu() {
   Clear_Main_Window();
-  Draw_Title("Refuel [Smith3D.com]"); // TODO: GET_TEXT_F
+  Draw_Title("Refuel"); // TODO: GET_TEXT_F
     DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(1), (char*)"Length (mm)");
     DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(2), (char*)"Feed");
     DWIN_Draw_String(false,false,font8x16,Color_White,Color_Bg_Black, 64, MBASE(3), (char*)"Retract");
@@ -2523,7 +2523,7 @@ inline void Draw_AUX_Menu() {
   }
   else {
    #ifdef USE_STRING_HEADINGS
-      Draw_Title("AUX Leveling [Smith3D.com]"); // TODO: GET_TEXT_F
+      Draw_Title("AUX Leveling"); // TODO: GET_TEXT_F
     #else
       DWIN_Frame_AreaCopy(1, 231, 2, 271-6, 479-467, 14, 8);
     #endif
